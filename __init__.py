@@ -24,7 +24,7 @@ def timer(msg=None):
     stop = time.clock()
     print msg.format(stop - start)
 
-def full_render(src, dst, k, min_diff, speed):
+def full_render(src, dst, k, speed, min_diff):
     '''
     k is number of colors
     min_diff is termination point for clustering algorithm
@@ -34,17 +34,17 @@ def full_render(src, dst, k, min_diff, speed):
     dst = os.path.expanduser(dst)
     with timer("Full render: {}"):
         print "Getting colors"
-        colors = dominant_colors(src, k, min_diff, speed)
+        colors = dominant_colors(src, k, speed, min_diff)
         print "Rendering"
         render_colors(colors, src, dst)
 
-def dominant_colors(path, k, min_diff, speed):
+def dominant_colors(path, k, speed, min_diff):
     print "Loading image"
     image = open_image(path, speed)
     print "Calculating points"
-    p = points(image)
+    pts = points(image)
     print "Calculating centers"
-    centers = kmeans(p, k, min_diff)
+    centers = kmeans(pts, k, min_diff)
     print "Stepping values"
     return [map(int, center.rgb) for center in centers]
 
@@ -59,17 +59,14 @@ def open_image(path, speed):
 def points(image):
     w, h = image.size
     print "{} pixels".format(w * h)
-    pts = []
-    for count, colors in image.getcolors(w * h):
-        pts.append(Point(rgb=colors, w=count, i=-1))
+    pts = [Point(rgb=colors, w=count, i=-1) for count, colors in image.getcolors(w * h)]
     print "{} unique colors".format(len(pts))
     return pts
 
 def kmeans(points, k, min_diff):
     '''Only returns centers, not clustered points'''
-
     # Initial centers
-    centers = list(random.sample(points, k))
+    centers = random.sample(points, k)
 
     iterations = 0
     while True:
@@ -144,12 +141,3 @@ def value_sort(colors):
 
 def here():
     return os.path.dirname(os.path.realpath(__file__))
-
-if __name__ == "__main__":
-    sample = "~/Downloads/rainforest.jpg"
-    src = sample
-    dst = "~/out.html"
-    k = 4
-    min_diff = 1
-    speed = 1
-    full_render(src, dst, k, min_diff, speed)
