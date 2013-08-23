@@ -5,8 +5,24 @@ import webbrowser
 from itertools import izip
 from contextlib import contextmanager
 from PIL import Image
-
 INFINITY = float("Inf")
+
+
+class Point(object):
+    __slots__ = "rgb", "w", "i"
+
+    def __init__(self, rgb, w, i):
+        self.rgb = rgb
+        self.w = w
+        self.i = i
+
+@contextmanager
+def timer(msg=None):
+    msg = msg or "Completed in {} seconds."
+    start = time.clock()
+    yield
+    stop = time.clock()
+    print msg.format(stop - start)
 
 def full_render(src, dst, k, min_diff, speed):
     '''
@@ -20,14 +36,6 @@ def full_render(src, dst, k, min_diff, speed):
         print "Rendering"
         render_colors(colors, dst)
 
-@contextmanager
-def timer(msg=None):
-    msg = msg or "Completed in {} seconds."
-    start = time.clock()
-    yield
-    stop = time.clock()
-    print msg.format(stop - start)
-
 def dominant_colors(path, k, min_diff, speed):
     path = os.path.expanduser(path)
     print "Loading image"
@@ -37,7 +45,7 @@ def dominant_colors(path, k, min_diff, speed):
     print "Calculating centers"
     centers = kmeans(p, k, min_diff)
     print "Stepping values"
-    return [map(int, center[1]) for center in centers]
+    return [map(int, center.rgb) for center in centers]
 
 def open_image(path, speed):
     image = Image.open(path)
@@ -47,39 +55,39 @@ def open_image(path, speed):
     image.thumbnail(size)
     return image
 
-
 def points(image):
     w, h = image.size
     print "{} pixels".format(w * h)
-    pts = list(image.getcolors(w * h))
+    pts = []
+    for count, colors in image.getcolors(w * h):
+        pts.append(Point(rgb=colors, w=count, i=-1))
     print "{} unique colors".format(len(pts))
     return pts
 
 def kmeans(points, k, min_diff):
     '''Only returns centers, not clustered points'''
-    n = len(points)
+
+    # Initial centers
     centers = list(random.sample(points, k))
-    # Instead of appending lists all the time, just update which cluster a point is in
-    cluster_point_map = [-1] * n
+
     iterations = 0
     while True:
         iterations += 1
         # Assignment step
-        for point_index, p in enumerate(points):
+        for point in points:
             min_dist = INFINITY
-            for cluster_index, cluster in enumerate(centers):
-                dist = distance2(p, cluster)
+            for center_index, center in enumerate(centers):
+                dist = distance2(point, center)
                 if dist < min_dist:
                     min_dist = dist
-                    cluster_point_map[point_index] = cluster_index
+                    point.i = center_index
         # Update step
         diff = 0
-        for i in xrange(k):
-            old = centers[i]
-            #Generator
-            i_points = [points[j] for j in xrange(n) if cluster_point_map[j] == i]
-            new = center(i_points)
-            centers[i] = new
+        for center_index in xrange(k):
+            old = centers[center_index]
+            cluster_points = [point for point in points if point.i == center_index]
+            new = cluster_center(cluster_points)
+            centers[center_index] = new
             diff = max(diff, distance2(old, new))
         if diff <= min_diff:
             break
@@ -87,14 +95,14 @@ def kmeans(points, k, min_diff):
     return centers
 
 def distance2(p1, p2):
-    return sum((p1[1][i] - p2[1][i]) ** 2 for i in xrange(3))
+    return sum((p1.rgb[i] - p2.rgb[i]) ** 2 for i in xrange(3))
 
-def center(points):
-   plen = sum(p[0] for p in points)
-   point_colors = list([count*color[0], count*color[1], count*color[2]] for (count, color) in points)
+def cluster_center(points):
+   n = sum(p.w for p in points)
+   point_colors = list([p.w * p.rgb[0], p.w * p.rgb[1], p.w * p.rgb[2]] for p in points)
    vals = map(sum, izip(*point_colors))
-   vals = [v / plen for v in vals]
-   return 1, vals
+   vals = [v / n for v in vals]
+   return Point(rgb=vals, w=1, i=-1)
 
 def clamp(x):
     return max(0, min(x, 255))
@@ -136,7 +144,7 @@ def here():
     return os.path.dirname(os.path.realpath(__file__))
 
 if __name__ == "__main__":
-    sample = "~/Downloads/rainforest.jpg"
+    sample = "~/Downloads/blue-test.jpg"
     src = sample
     dst = "~/out.html"
     k = 4
