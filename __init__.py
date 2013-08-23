@@ -2,12 +2,11 @@ import os
 import time
 import random
 import webbrowser
-from collections import namedtuple
+from itertools import izip
 from contextlib import contextmanager
 from PIL import Image
 
-Point = namedtuple("Point", ("coords", "count"))
-Cluster = namedtuple("Cluster", ("points", "center"))
+INFINITY = float("Inf")
 
 def full_render(src, dst, k, min_diff, speed):
     '''
@@ -15,32 +14,33 @@ def full_render(src, dst, k, min_diff, speed):
     min_diff is termination point for clustering algorithm
     speed is inverse of quality - resolution is cut by speed ^ 2
     '''
-    with timer():
-        print "dst is: <{}>".format(dst)
+    with timer("Full render: {}"):
         print "Getting colors"
         colors = dominant_colors(src, k, min_diff, speed)
         print "Rendering"
         render_colors(colors, dst)
 
 @contextmanager
-def timer():
+def timer(msg=None):
+    msg = msg or "Completed in {} seconds."
     start = time.clock()
     yield
     stop = time.clock()
-    print "Completed in {} seconds".format(stop - start)
+    print msg.format(stop - start)
 
 def dominant_colors(path, k, min_diff, speed):
+    path = os.path.expanduser(path)
     print "Loading image"
     image = open_image(path, speed)
     print "Calculating points"
     p = points(image)
-    print "Calculating clusters"
-    clusters = kmeans(p, k, min_diff)
+    print "Calculating centers"
+    centers = kmeans(p, k, min_diff)
     print "Stepping values"
-    return [map(int, c.center.coords) for c in clusters]
+    return [map(int, center[1]) for center in centers]
 
 def open_image(path, speed):
-    image = Image.open(os.path.expanduser(path))
+    image = Image.open(path)
     w, h = image.size
     speed = float(speed)
     size = int(w / speed), int(h / speed)
@@ -50,43 +50,51 @@ def open_image(path, speed):
 
 def points(image):
     w, h = image.size
-    print "Sampling {} points".format(w * h)
-    return [Point(color, count) for (count, color) in image.getcolors(w * h)]
+    print "{} pixels".format(w * h)
+    pts = list(image.getcolors(w * h))
+    print "{} unique colors".format(len(pts))
+    return pts
 
 def kmeans(points, k, min_diff):
-    clusters = [Cluster([p], p) for p in random.sample(points, k)]
+    '''Only returns centers, not clustered points'''
+    n = len(points)
+    centers = list(random.sample(points, k))
+    # Instead of appending lists all the time, just update which cluster a point is in
+    cluster_point_map = [-1] * n
+    iterations = 0
     while True:
-        plists = [[] for i in xrange(k)]
-        for p in points:
-            min_dist = float("Inf")
-            for i in range(k):
-                dist = distance2(p, clusters[i].center)
+        iterations += 1
+        # Assignment step
+        for point_index, p in enumerate(points):
+            min_dist = INFINITY
+            for cluster_index, cluster in enumerate(centers):
+                dist = distance2(p, cluster)
                 if dist < min_dist:
                     min_dist = dist
-                    idx = i
-            plists[idx].append(p)
+                    cluster_point_map[point_index] = cluster_index
+        # Update step
         diff = 0
         for i in xrange(k):
-            old = clusters[i]
-            c = center(plists[i])
-            new = Cluster(plists[i], c)
-            clusters[i] = new
-            diff = max(diff, distance2(old.center, new.center))
+            old = centers[i]
+            #Generator
+            i_points = [points[j] for j in xrange(n) if cluster_point_map[j] == i]
+            new = center(i_points)
+            centers[i] = new
+            diff = max(diff, distance2(old, new))
         if diff <= min_diff:
             break
-    return clusters
+    print "{} assign/update iterations".format(iterations)
+    return centers
 
 def distance2(p1, p2):
-    return sum((p1.coords[i] - p2.coords[i]) ** 2 for i in xrange(3))
+    return sum((p1[1][i] - p2[1][i]) ** 2 for i in xrange(3))
 
 def center(points):
-   vals = [0.0 for i in range(3)]
-   plen = 0
-   for p in points:
-           plen += p.count
-           for i in range(3):
-               vals[i] += (p.coords[i] * p.count)
-   return Point([(v / plen) for v in vals], 1)
+   plen = sum(p[0] for p in points)
+   point_colors = list([count*color[0], count*color[1], count*color[2]] for (count, color) in points)
+   vals = map(sum, izip(*point_colors))
+   vals = [v / plen for v in vals]
+   return 1, vals
 
 def clamp(x):
     return max(0, min(x, 255))
@@ -131,7 +139,7 @@ if __name__ == "__main__":
     sample = "~/Downloads/rainforest.jpg"
     src = sample
     dst = "~/out.html"
-    k = 6
+    k = 4
     min_diff = 1
-    speed = 4
+    speed = 1
     full_render(src, dst, k, min_diff, speed)
