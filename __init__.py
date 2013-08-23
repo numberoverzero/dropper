@@ -30,14 +30,15 @@ def full_render(src, dst, k, min_diff, speed):
     min_diff is termination point for clustering algorithm
     speed is inverse of quality - resolution is cut by speed ^ 2
     '''
+    src = os.path.expanduser(src)
+    dst = os.path.expanduser(dst)
     with timer("Full render: {}"):
         print "Getting colors"
         colors = dominant_colors(src, k, min_diff, speed)
         print "Rendering"
-        render_colors(colors, dst)
+        render_colors(colors, src, dst)
 
 def dominant_colors(path, k, min_diff, speed):
-    path = os.path.expanduser(path)
     print "Loading image"
     image = open_image(path, speed)
     print "Calculating points"
@@ -111,22 +112,23 @@ def rgb_to_hex(rgb):
     return "#{0:02x}{1:02x}{2:02x}".format(*rgb)
 
 
-def render_colors(colors, dst):
+def render_colors(colors, src, dst):
     print "Loading template"
-    src = os.path.join(here(), 'base.html')
-    with open(src) as f:
+    base = os.path.join(here(), 'base.html')
+    with open(base) as f:
         template = f.read()
     print "Creating divs"
     row = "<div class='box' style='background-color: {}'></div>"
+    src_row = "<div class='box src'><img src='{}'></div>"
     print "Sorting by value"
     colors = value_sort(colors)
     print "Mapping to hex"
     colors = map(rgb_to_hex, colors)
     rows = [row.format(c) for c in colors]
+    rows.append(src_row.format(src))
     pre, post = template.split("{{content}}")
     render = pre + '\n'.join(rows) + post
     print "Saving to file"
-    dst = os.path.expanduser(dst)
     with open(dst, 'w') as f:
         f.write(render)
     webbrowser.open(dst)
@@ -144,7 +146,7 @@ def here():
     return os.path.dirname(os.path.realpath(__file__))
 
 if __name__ == "__main__":
-    sample = "~/Downloads/blue-test.jpg"
+    sample = "~/Downloads/rainforest.jpg"
     src = sample
     dst = "~/out.html"
     k = 4
