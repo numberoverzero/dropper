@@ -34,6 +34,10 @@ The output of render_colors is an html file such as::
 	<head>
 	<link rel="stylesheet" type="text/css" href="http://reset5.googlecode.com/hg/reset.min.css">
 	<style>
+		img {
+		  max-width: 100%;
+		  height: auto;
+		}
 		.box {
 				max-width: 978px;
 				min-height: 70px;
@@ -42,15 +46,17 @@ The output of render_colors is an html file such as::
 				margin-top: 10px;
 				margin-bottom: 10px;
 			}
+		.box .src {
+			max-height: 978px;
+		}
 	</style>
 	</head>
 	<body>
-	<div class='box' style='background-color: #18150a'></div>
-	<div class='box' style='background-color: #373a12'></div>
-	<div class='box' style='background-color: #646a1c'></div>
-	<div class='box' style='background-color: #9f9f29'></div>
-	<div class='box' style='background-color: #e4db37'></div>
-	<div class='box' style='background-color: #f8f6d1'></div>
+	<div class='box' style='background-color: #1f1d0b'></div>
+	<div class='box' style='background-color: #64691c'></div>
+	<div class='box' style='background-color: #d1cc2d'></div>
+	<div class='box' style='background-color: #f7f7ce'></div>
+	<div class='box src'><img src='~/Downloads/rainforest.jpg'></div>
 	</body>
 	</html>
 
