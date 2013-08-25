@@ -26,12 +26,12 @@ def full_render(src, dst, k):
         render_colors(colors, src, dst)
 
 def dominant_colors(path, k):
-    print "Loading image"
-    image = Image.open(path)
-    print "Calculating points"
-    pts = points(image)
-    print "Calculating centers"
-    centers = kmeans(pts, k)
+    with timer("Image loaded: {}"):
+        image = Image.open(path)
+    with timer("Transform points: {}"):
+        pts = points(image)
+    with timer("Calculate centers: {}"):
+        centers = kmeans(pts, k)
     return centers
 
 def points(image):
@@ -47,20 +47,20 @@ def rgb_to_hex(rgb):
     return "#{0:02x}{1:02x}{2:02x}".format(*rgb)
 
 def render_colors(colors, src, dst):
-    print "Saving Image"
-    base = os.path.join(here(), 'base.html')
-    with open(base) as f:
-        template = f.read()
-    row = "<div class='box' style='background-color: {}'></div>"
-    src_row = "<div class='box src'><img src='{}'></div>"
-    colors = value_sort(colors)
-    colors = map(rgb_to_hex, colors)
-    rows = [row.format(c) for c in colors]
-    rows.append(src_row.format(src))
-    pre, post = template.split("{{content}}")
-    render = pre + '\n'.join(rows) + post
-    with open(dst, 'w') as f:
-        f.write(render)
+    with timer("Save Image: {}"):
+        base = os.path.join(here(), 'base.html')
+        with open(base) as f:
+            template = f.read()
+        row = "<div class='box' style='background-color: {}'></div>"
+        src_row = "<div class='box src'><img src='{}'></div>"
+        colors = value_sort(colors)
+        colors = map(rgb_to_hex, colors)
+        rows = [row.format(c) for c in colors]
+        rows.append(src_row.format(src))
+        pre, post = template.split("{{content}}")
+        render = pre + '\n'.join(rows) + post
+        with open(dst, 'w') as f:
+            f.write(render)
     webbrowser.open(dst)
 
 def value_sort(colors):
