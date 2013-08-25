@@ -1,8 +1,8 @@
 import os
 import time
 import webbrowser
+from kmeans import kmeans
 from contextlib import contextmanager
-from dropper import lib
 from PIL import Image
 
 @contextmanager
@@ -13,7 +13,7 @@ def timer(msg=None):
     stop = time.clock()
     print msg.format(stop - start)
 
-def full_render(src, dst, k, seed):
+def full_render(src, dst, k):
     '''
     k is number of colors
     min_diff is termination point for clustering algorithm
@@ -22,25 +22,22 @@ def full_render(src, dst, k, seed):
     src = os.path.expanduser(src)
     dst = os.path.expanduser(dst)
     with timer("Full render: {}"):
-        colors = dominant_colors(src, k, seed)
+        colors = dominant_colors(src, k)
         render_colors(colors, src, dst)
 
-def dominant_colors(path, k, seed):
+def dominant_colors(path, k):
     print "Loading image"
     image = Image.open(path)
     print "Calculating points"
     pts = points(image)
     print "Calculating centers"
-    centers = lib.kmeans(pts, k, seed)
+    centers = kmeans(pts, k)
     return centers
 
 def points(image):
-    points = []
     w, h = image.size
-    for count, colors in image.getcolors(w * h):
-        rgbc = list(colors)
-        rgbc.append(count)
-        points.append(rgbc)
+    points = [(rgb, count) for count, rgb in image.getcolors(w * h)]
+    print "{} unique colors".format(len(points))
     return points
 
 def clamp(x):
